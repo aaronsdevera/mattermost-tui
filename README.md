@@ -6,12 +6,47 @@ username/password. Built with [uv](https://docs.astral.sh/uv/),
 [Click](https://click.palletsprojects.com/), [httpx](https://www.python-httpx.org/), and
 [Textual](https://textual.textualize.io/).
 
-## Requirements
+**Latest release: [v0.2.0](https://github.com/aaronsdevera/mattermost-tui/releases/tag/v0.2.0)**
+— adds channel sorting by unread count (`Ctrl+R`).
+
+## Requirements (source only)
 
 - [uv](https://docs.astral.sh/uv/)
 - Python 3.14+ (see `.python-version`)
 
 ## Install
+
+### From a release binary (recommended)
+
+Download the latest release from the
+[Releases](https://github.com/aaronsdevera/mattermost-tui/releases/tag/v0.2.0) page and
+pick the archive for your platform:
+
+| Platform | Archive |
+| --- | --- |
+| Windows x64 | `.zip` |
+| Linux x64 | `.tar.gz` |
+| macOS Apple Silicon | `mattermost-tui-macos-arm64.tar.gz` |
+| macOS Intel x64 | `mattermost-tui-macos-amd64.tar.gz` |
+
+Extract and install (macOS / Linux example):
+
+```bash
+gzip -d mattermost-tui-macos-arm64.tar.gz
+tar -xvf mattermost-tui-macos-arm64.tar
+chmod +x mattermost-tui
+mv mattermost-tui /usr/local/bin/
+```
+
+Then run it directly — no Python or `uv` required:
+
+```bash
+mattermost-tui --url https://your-server.example.com --login-id user@example.com
+```
+
+### From source
+
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.14+ (see `.python-version`).
 
 From the repository root:
 
@@ -22,28 +57,15 @@ uv sync
 This installs dependencies and registers the `mattermost-tui` (and `mmt`) console scripts
 into the project virtualenv.
 
-## Releases
-
-GitHub Actions builds standalone binaries (via PyInstaller) for:
-
-| Platform | Archive |
-| --- | --- |
-| Windows x64 | `.zip` |
-| Linux x64 | `.tar.gz` |
-| macOS Apple Silicon | `mattermost-tui-macos-arm64.tar.gz` |
-| macOS Intel x64 | `mattermost-tui-macos-amd64.tar.gz` |
-
-Binaries are uploaded to the
-[Releases](https://github.com/aaronsdevera/mattermost-tui/releases) page when a version tag
-such as `v0.1.0` is pushed. Pull requests and manual runs of the **Binary builds** workflow
-also attach artifacts under the run's **Artifacts** section.
-
-To build a binary locally:
+### Build a binary locally
 
 ```bash
 uv sync --group build-binary
 uv run pyinstaller mattermost-tui.spec
 ```
+
+GitHub Actions also builds binaries automatically — pull requests and manual runs of the
+**Binary builds** workflow attach artifacts under the run's **Artifacts** section.
 
 ## Usage
 
@@ -54,13 +76,16 @@ uv run pyinstaller mattermost-tui.spec
 | Root-hosted | `https://chat.example.com` |
 | Path-hosted | `https://example.com/chat` |
 
+The examples below use the binary directly. If running from source, prefix commands with
+`uv run` (e.g. `uv run mattermost-tui ...`).
+
 ### Personal access token (recommended)
 
 Create a token in Mattermost:
 **Profile → Account Settings → Security → Personal Access Tokens**.
 
 ```bash
-uv run mattermost-tui --url https://your-server.example.com --token mm_token_...
+mattermost-tui --url https://your-server.example.com --token mm_token_...
 ```
 
 Prefer the `MATTERMOST_TOKEN` environment variable over `--token` so the token does not
@@ -68,13 +93,12 @@ appear in shell history or `ps` output.
 
 ### Username and password
 
-Omit `--token` to use `POST /api/v4/users/login`. You will be prompted for login ID and
-password unless they are supplied via environment variables. The password is **never
-accepted as a CLI flag** — use `MATTERMOST_PASSWORD`, a `.env` file, or the interactive
-prompt.
+Omit `--token` to use `POST /api/v4/users/login`. You will be prompted for your password
+unless it is supplied via an environment variable. The password is **never accepted as a CLI
+flag** — use `MATTERMOST_PASSWORD`, a `.env` file, or the interactive prompt.
 
 ```bash
-uv run mattermost-tui --url https://your-server.example.com --login-id alice@example.com
+mattermost-tui --url https://your-server.example.com --login-id user@example.com
 ```
 
 ### Environment variables
@@ -102,7 +126,7 @@ Example using only environment variables:
 ```bash
 export MATTERMOST_URL=https://your-server.example.com
 export MATTERMOST_TOKEN=mm_token_...
-uv run mattermost-tui
+mattermost-tui
 ```
 
 ### TLS and proxies
@@ -110,20 +134,20 @@ uv run mattermost-tui
 Disable TLS verification for self-signed certificates (local/lab use only):
 
 ```bash
-uv run mattermost-tui --url https://localhost:8065 --no-verify-ssl --token mm_token_...
+mattermost-tui --url https://localhost:8065 --no-verify-ssl --token mm_token_...
 ```
 
 Route traffic through an HTTP or SOCKS proxy:
 
 ```bash
-uv run mattermost-tui --url https://your-server.example.com \
+mattermost-tui --url https://your-server.example.com \
   --proxy socks5://127.0.0.1:1080 --token mm_token_...
 ```
 
 ### Help
 
 ```bash
-uv run mattermost-tui --help
+mattermost-tui --help
 ```
 
 ## Keyboard shortcuts
