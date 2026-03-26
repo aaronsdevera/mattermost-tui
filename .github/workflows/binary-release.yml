@@ -1,0 +1,91 @@
+name: Binary builds
+
+on:
+  pull_request:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: binary-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            os: windows-latest
+            artifact_path: mattermost-tui-windows-amd64.zip
+          - name: linux
+            os: ubuntu-latest
+            artifact_path: mattermost-tui-linux-amd64.tar.gz
+          - name: macos-arm64
+            os: macos-latest
+            artifact_path: mattermost-tui-macos-arm64.tar.gz
+          - name: macos-x64
+            os: macos-15-intel
+            artifact_path: mattermost-tui-macos-amd64.tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          allow-prerelease: true
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --group build-binary
+
+      - name: Build binary (PyInstaller)
+        run: uv run pyinstaller mattermost-tui.spec
+
+      - name: Package (Windows)
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -LiteralPath dist/mattermost-tui.exe -DestinationPath ${{ matrix.artifact_path }}
+
+      - name: Package (Linux)
+        if: matrix.name == 'linux'
+        run: tar -czvf "${{ matrix.artifact_path }}" -C dist mattermost-tui
+
+      - name: Package (macOS)
+        if: startsWith(matrix.name, 'macos')
+        run: tar -czvf "${{ matrix.artifact_path }}" -C dist mattermost-tui
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.name }}
+          path: ${{ matrix.artifact_path }}
+
+  release:
+    needs: build
+    if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: binary-*
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
