@@ -73,8 +73,9 @@ CLI args override env vars. Disable SSL verification with `--no-verify-ssl`.
 | `Ctrl+H` | Toggle wrap/scroll |
 | `Ctrl+T` | Next team |
 | `Ctrl+M` | Toggle channels/DMs sidebar |
+| `Ctrl+R` | Toggle channel sort (alpha / unread-first) |
 | `Tab` | Focus composer |
 | `Enter` | Send message |
 
-On Windows/Linux the same actions use `Ctrl+Shift+` with letters C, M, S, U, I, H
+On Windows/Linux the same actions use `Ctrl+Shift+` with letters C, M, S, U, I, H, R
 respectively.

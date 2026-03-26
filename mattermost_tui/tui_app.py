@@ -151,6 +151,7 @@ class ChannelSearchModal(ModalScreen[str | None]):
 
 
 SidebarMode = Literal["channels", "dms"]
+ChannelSortMode = Literal["alpha", "unread"]
 
 _TYPEAHEAD_IDLE_SEC = 1.0
 
@@ -273,6 +274,7 @@ class MattermostTui(App[None]):
         Binding(_main_hotkey("u", "u"), "toggle_unread_filter", "Unread", show=True),
         Binding(_main_hotkey("o", "i"), "channel_info", "Channel info", show=True),
         Binding(_main_hotkey("h", "h"), "toggle_message_line_mode", "Wrap/scroll", show=True),
+        Binding(_main_hotkey("r", "r"), "toggle_channel_sort", "Sort", show=True),
         Binding("ctrl+t", "next_team", "Team", show=True),
         Binding("ctrl+m", "toggle_sidebar", "Chats", show=True),
         Binding("escape", "blur_input", "Unfocus", show=False),
@@ -312,6 +314,7 @@ class MattermostTui(App[None]):
         self._unread_waterline: dict[str, int] = {}
         self._highlight_post_ids: set[str] = set()
         self._my_user_id: str | None = None
+        self._channel_sort_mode: ChannelSortMode = "alpha"
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action in _POSTS_VIEW_ACTIONS:
@@ -382,6 +385,11 @@ class MattermostTui(App[None]):
                 "Toggle channels / direct messages",
                 "toggle_sidebar",
                 "Sidebar: team channels versus direct and group messages.",
+            ),
+            (
+                "Toggle channel sort order",
+                "toggle_channel_sort",
+                "Sidebar: sort alphabetically or by unread/most-recent first.",
             ),
         ]
         for title, action, blurb in specs:
@@ -473,7 +481,31 @@ class MattermostTui(App[None]):
 
         labels = await build_channel_labels(self._mm, raw, me.id)
         enriched = list(zip(raw, labels, strict=True))
-        enriched.sort(key=lambda x: x[1].lower())
+
+        if self._channel_sort_mode == "unread":
+            member_info = await self._mm.get_channel_members_me_bulk([ch.id for ch in raw])
+            # Store waterline for all channels so toggling unread filter works immediately
+            for ch in raw:
+                info = member_info.get(ch.id, {})
+                lv = int(info.get("last_viewed_at") or 0)
+                if lv:
+                    self._unread_waterline[ch.id] = lv
+
+            def _unread_sort_key(pair: tuple) -> tuple:
+                ch, _label = pair
+                info = member_info.get(ch.id, {})
+                msg_count_root = int(info.get("msg_count_root") or info.get("msg_count") or 0)
+                mention_count = int(info.get("mention_count") or 0)
+                # Channels with mentions sort first, then by unread count, then by recency
+                has_mention = mention_count > 0
+                has_unread = msg_count_root > 0
+                last_post = ch.last_post_at
+                return (not has_mention, not has_unread, -last_post)
+
+            enriched.sort(key=_unread_sort_key)
+        else:
+            enriched.sort(key=lambda x: x[1].lower())
+
         self._channels = [e[0] for e in enriched]
         self._channel_labels = {ch.id: lab for ch, lab in enriched}
         ol.clear_options()
@@ -527,6 +559,14 @@ class MattermostTui(App[None]):
         self._sidebar_mode = "dms" if self._sidebar_mode == "channels" else "channels"
         self.notify(
             "Sidebar: channels (this team)" if self._sidebar_mode == "channels" else "Sidebar: direct messages",
+            severity="information",
+        )
+        self._load_channels()
+
+    def action_toggle_channel_sort(self) -> None:
+        self._channel_sort_mode = "unread" if self._channel_sort_mode == "alpha" else "alpha"
+        self.notify(
+            "Sort: unread / recent first" if self._channel_sort_mode == "unread" else "Sort: alphabetical",
             severity="information",
         )
         self._load_channels()

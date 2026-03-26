@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -150,6 +151,26 @@ class MattermostClient:
         if not isinstance(data, dict):
             return {}
         return data
+
+    async def get_channel_members_me_bulk(
+        self, channel_ids: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch channel member info for the current user for multiple channels in parallel.
+
+        Returns a mapping of channel_id → member dict (same shape as get_channel_member_me).
+        Channels that fail (e.g. no access) are omitted from the result.
+        """
+        if not channel_ids:
+            return {}
+
+        async def _fetch(cid: str) -> tuple[str, dict[str, Any]] | None:
+            try:
+                return cid, await self.get_channel_member_me(cid)
+            except MattermostAPIError:
+                return None
+
+        results = await asyncio.gather(*(_fetch(cid) for cid in channel_ids))
+        return {cid: member for r in results if r is not None for cid, member in [r]}
 
     async def mark_channel_viewed(
         self, channel_id: str, *, prev_channel_id: str | None = None

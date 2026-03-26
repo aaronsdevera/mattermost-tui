@@ -14,6 +14,7 @@ class Channel:
     team_id: str
     type: str
     delete_at: int
+    last_post_at: int = 0
 
     @classmethod
     def from_api(cls, data: dict[str, Any]) -> Channel:
@@ -24,6 +25,7 @@ class Channel:
             team_id=str(data.get("team_id") or ""),
             type=str(data.get("type") or "O").upper(),
             delete_at=int(data.get("delete_at") or 0),
+            last_post_at=int(data.get("last_post_at") or 0),
         )
 
     @property
